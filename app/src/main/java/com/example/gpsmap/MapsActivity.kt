@@ -1,7 +1,12 @@
 package com.example.gpsmap
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -13,6 +18,10 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import org.jetbrains.anko.alert
+import org.jetbrains.anko.noButton
+import org.jetbrains.anko.toast
+import org.jetbrains.anko.yesButton
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -32,12 +41,30 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        locationinit();
+        locationinit()
 
     }
 
     private fun permissionCheck(cancel:()-> Unit, ok:() ->Unit){
+        //위치 권한이 있는지 검사한다.
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
+            if(ActivityCompat.shouldShowRequestPermissionRationale(this,Manifest.permission.ACCESS_FINE_LOCATION)){
+                cancel()
+            } else{
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),REQUEST_ACCESS_FINE_LOCATION)
+            }
+        } else {
+            ok()
+        }
+    }
 
+    private fun showPermissionInfoDialog(){
+        alert ("현재 위치 정보를 얻으려면 위치 권한이 필요합니다","권한이 필요한 이유") {
+            yesButton {
+                ActivityCompat.requestPermissions(this@MapsActivity, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),REQUEST_ACCESS_FINE_LOCATION)
+            }
+            noButton {  }
+        }.show()
     }
 
     private fun locationinit(){
@@ -77,9 +104,16 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onResume() {
         super.onResume()
-        addLocationListener()
+        permissionCheck(cancel = {
+            //위치 정보가 필요한 이유 다이얼로그 표시
+            showPermissionInfoDialog()
+        }, ok = {
+            // 현재 위치를 주기적으로 요청 ( 권한이 필요한 부분 )
+            addLocationListener()
+        })
     }
 
+    @SuppressLint("MissingPermission")
     private fun addLocationListener(){
         fusedLocationProviderClient.requestLocationUpdates(locationRequest,locationCallback, null)
     }
@@ -97,5 +131,26 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        removeLocationListener()
+    }
 
+    private fun removeLocationListener(){
+        fusedLocationProviderClient.removeLocationUpdates(locationCallback)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when(requestCode){
+            REQUEST_ACCESS_FINE_LOCATION-> {
+                if((grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)){
+                    addLocationListener()
+                } else{
+                    toast("권한 거부됨")
+                }
+                return
+            }
+        }
+    }
 }
