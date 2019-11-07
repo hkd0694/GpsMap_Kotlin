@@ -139,12 +139,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             location?.run {
                 val latLng = LatLng(latitude,longitude)
                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 17f))
-                
                 Log.e("Start","위도 : $latitude, 경도 : $longitude")
-
                 //PolyLine에 좌표 추가
                 polylineOptions.add(latLng)
-
                 //선 그리기
                mMap.addPolyline(polylineOptions)
             }
